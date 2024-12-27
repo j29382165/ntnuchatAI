@@ -25,6 +25,11 @@ $(document).ready(function () {
               'data-conversation-id': conv.id,
             })
             .html(`<div><i class="bi bi-chat-dots me-2"></i>${conv.name}</div>`);
+          const deleteButton = $('<button>')
+            .addClass('btn btn-danger btn-sm delete-conversation')
+            .text('刪除')
+            .attr('data-conversation-id', conv.id);
+          newChatItem.append(deleteButton);
           chatList.append(newChatItem);
         });
       },
@@ -51,6 +56,11 @@ $(document).ready(function () {
             'data-conversation-id': conversation.id,
           })
           .html(`<div><i class="bi bi-chat-dots me-2"></i>${conversation.name}</div>`);
+        const deleteButton = $('<button>')
+          .addClass('btn btn-danger btn-sm delete-conversation')
+          .text('刪除')
+          .attr('data-conversation-id', conversation.id);
+        newChatItem.append(deleteButton);
         chatList.prepend(newChatItem);
 
         // 切換到新對話
@@ -133,7 +143,7 @@ $(document).ready(function () {
     const message = chatInput.val().trim(); // 使用者輸入的問題
     if (message) {
       if (!currentConversationId) {
-        placeholder.hide();
+        placeholder.hide(); //隱藏一開始ntnu logo
         // 如果沒有活躍對話，創建新對話並顯示第一次問題
         $.ajax({
           url: '/api/new_conversation',
@@ -151,6 +161,11 @@ $(document).ready(function () {
                 'data-conversation-id': conversation.id,
               })
               .html(`<div><i class="bi bi-chat-dots me-2"></i>${conversation.name}</div>`);
+            const deleteButton = $('<button>')
+              .addClass('btn btn-danger btn-sm delete-conversation')
+              .text('刪除')
+              .attr('data-conversation-id', conversation.id);
+            newChatItem.append(deleteButton);
             chatList.prepend(newChatItem);
 
             // 顯示第一次問題在對話框中
@@ -229,6 +244,28 @@ $(document).ready(function () {
   // 對話列表點擊事件
   chatList.on('click', '.list-group-item', function (event) {
     setActiveChat($(this));
+  });
+
+  // 刪除對話按鈕點擊事件
+  chatList.on('click', '.delete-conversation', function (event) {
+    event.stopPropagation();
+    const conversationId = $(this).attr('data-conversation-id');
+    $.ajax({
+      url: `/api/delete_conversation/${conversationId}`,
+      method: 'DELETE',
+      success: function () {
+        loadConversations();
+        // 清空聊天內容
+        chatContent.empty();
+        // 顯示 placeholder
+        placeholder.show();
+        // 重置當前對話 ID
+        currentConversationId = null;
+      },
+      error: function (error) {
+        console.error('Error deleting conversation:', error);
+      }
+    });
   });
 
   // 漢堡菜單

@@ -125,9 +125,29 @@ def get_chat_history(conversation_id):
     messages = ChatMessage.query.filter_by(conversation_id=conversation_id).order_by(ChatMessage.timestamp).all()
     return jsonify([msg.to_dict() for msg in messages])
 
+# 刪除對話
+@app.route('/api/delete_conversation/<conversation_id>', methods=['DELETE'])
+def delete_conversation(conversation_id):
+    try:
+        # 刪除對話記錄
+        ChatMessage.query.filter_by(conversation_id=conversation_id).delete()
+        # 刪除對話
+        Conversation.query.filter_by(id=conversation_id).delete()
+        db.session.commit()
+        return jsonify({"message": "對話已刪除"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"刪除對話時出錯: {str(e)}"}), 500
+
+
+
+
 # 創建資料庫表格
 with app.app_context():
     db.create_all()
 
 if __name__ == "__main__":
     app.run(debug=True, threaded=False)  # 生產環境建議使用 WSGI (例如 gunicorn)
+
+
+

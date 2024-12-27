@@ -95,6 +95,19 @@ p.date {
   display: none;
 }
 
+.btn.btn-danger.btn-sm.delete-conversation {
+  font-size: 12px;
+  font-weight: 400;
+  padding:2px 4px;
+  background-color: #808080;
+  border-color: #808080;
+}
+
+.btn.btn-danger.btn-sm.delete-conversation:hover {
+  background-color: #dc3545;
+  border-color: #dc3545;
+}
+
 @media only screen and (max-width: 767px) {
   .col-3 {
     position: fixed;
