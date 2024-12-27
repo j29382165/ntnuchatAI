@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NTNU Chat</title>
+  <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css'>
+  <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.1/css/all.min.css'>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+<div class="container-fluid h-100">
+  <button class="hamburger-menu"><i class="fa-solid fa-bars"></i></button>
+  <div class="row h-100">
+    <div class="col-3 bg-light overflow-auto p-4">
+      <div class="d-flex align-items-center mb-3">
+        <img class="me-2" src="https://res.cloudinary.com/df0cwejff/image/upload/v1717142161/A103_Red_lmxezx.png" width="40" height="40" alt="Smart Campus"/>
+        <h5 class="mb-0">NTNU Chatbot</h5>
+      </div>
+      <div class="addchat"><a class="h6 addchat" href="#">+新交談</a></div><br/>
+      <div class="input-group mb-3">
+        <input class="form-control" type="text" placeholder="搜尋..." aria-label="搜尋..." aria-describedby="button-addon2"/>
+        <button class="btn btn-outline-secondary" id="button-addon2" type="button"><i class="fa-solid fa-magnifying-glass"></i></button>
+      </div>
+      <p class="date">過去7天</p>
+      <div class="list-group" id="chat-list">
+        <!-- <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="#" data-content="新對話2">
+          <div><i class="bi bi-calendar-week me-2"></i>新對話0</div></a> -->
+        <!-- 新對話項目會動態添加到這裡 -->
+      </div>
+    </div>
+    <div class="col-9 bg-white d-flex flex-column">
+      <div class="chat-header border-bottom py-3 px-4">
+        <div class="usertop position-absolute top-0 end-0">
+          <img class="me-2" src="https://res.cloudinary.com/df0cwejff/image/upload/v1733452304/NTNU_ITC_wq0dvu.png" width="40" height="40" alt="Smart Campus"/>
+          <span class="username mb-0">smart campus</span>
+          <span class="hello">您好!</span>
+          <a class="span" href="http://www.yahoo.com.tw/">登出</a><br/>
+        </div>
+      </div>
+      <div class="chat-placeholder">
+        <img class="ntnulogo" src="https://res.cloudinary.com/df0cwejff/image/upload/v1717142161/A103_Red_lmxezx.png"/><br/><br/>
+        <h4>您需要什麼？</h4>
+        <h6>How can I help you today?</h6><br/>
+      </div>
+
+      <div class="chat-content flex-grow-1 overflow-auto p-4">
+      </div>
+      
+      <div class="chat-input position-fixed bottom-0 w-75 bg-white border-top p-3">
+        <div class="input-group mb-3">
+          <textarea class="form-control" type="text" placeholder="輸入文字" aria-label="輸入消息..." aria-describedby="button-send"></textarea>
+          <button class="btn btn-primary" id="button-send" type="button">發送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js'></script>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

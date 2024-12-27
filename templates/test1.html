@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Chat</title>
+  <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css'>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <h1>AI Chat</h1>
+  <textarea id="userInput" placeholder="輸入訊息..."></textarea>
+  <br>
+  <button class="btn btn-primary" id="sendBtn">送出</button>
+  <div id="reply"></div>
+
+  <script>
+    document.getElementById('sendBtn').addEventListener('click', async () => {
+      const userInput = document.getElementById('userInput').value;
+
+      if (!userInput) {
+        alert("請輸入訊息！");
+        return;
+      }
+
+      const response = await fetch('/api/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userInput })
+      });
+
+      const data = await response.json();
+      document.getElementById('reply').innerText = data.reply || "無回覆";
+    });
+  </script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js'></script>
+  <script src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js'></script>
+</body>
+</html>
