@@ -140,6 +140,28 @@ def delete_conversation(conversation_id):
         return jsonify({"error": f"刪除對話時出錯: {str(e)}"}), 500
 
 
+#修改新對話聊天室名稱
+@app.route('/api/rename_conversation/<conversation_id>', methods=['PUT'])
+def rename_conversation(conversation_id):
+    try:
+        new_name = request.json.get('name')
+        if not new_name:
+            return jsonify({"error": "Name is required"}), 400
+            
+        conversation = Conversation.query.get(conversation_id)
+        if not conversation:
+            return jsonify({"error": "Conversation not found"}), 404
+            
+        conversation.name = new_name
+        db.session.commit()
+        
+        return jsonify({
+            "id": conversation.id,
+            "name": conversation.name
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
 # 創建資料庫表格
