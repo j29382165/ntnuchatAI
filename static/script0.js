@@ -39,13 +39,24 @@ $(document).ready(function () {
       .val(conversation.name);
       
     const nameContainer = $('<div>')
+      .addClass('d-flex justify-content-between align-items-center w-100')
       .append(chatName)
       .append(input);
-      
+    
+    const buttonContainer = $('<div>')
+    .addClass('d-flex buttongroup');
+
+    const editButton = $('<button>')
+    .addClass('btn btn-primary btn-sm edit-conversation')
+    .text('編輯')
+    .attr('data-conversation-id', conversation.id);
+
     const deleteButton = $('<button>')
-      .addClass('btn btn-danger btn-sm delete-conversation')
-      .text('刪除')
-      .attr('data-conversation-id', conversation.id);
+    .addClass('btn btn-danger btn-sm delete-conversation')
+    .text('刪除')
+    .attr('data-conversation-id', conversation.id);
+
+    buttonContainer.append(editButton).append(deleteButton);
       
     return $('<a>')
       .addClass('list-group-item list-group-item-action d-flex justify-content-between align-items-center')
@@ -54,7 +65,8 @@ $(document).ready(function () {
         'data-conversation-id': conversation.id
       })
       .append(nameContainer)
-      .append(deleteButton);
+      .append(buttonContainer);
+      
   }
 
   // 創建新對話並發送消息
@@ -163,12 +175,22 @@ sendButton.on('click', function () {
           const nameContainer = $('<div>')
             .append(chatName)
             .append(input);
-            
+
+          const buttonContainer = $('<div>')
+          .addClass('d-flex');  
+                    
+          const editButton = $('<button>')
+          .addClass('btn btn-primary btn-sm edit-conversation')
+          .text('編輯')
+          .attr('data-conversation-id', conversation.id);  
+
           const deleteButton = $('<button>')
-            .addClass('btn btn-danger btn-sm delete-conversation')
-            .text('刪除')
-            .attr('data-conversation-id', conversation.id);
-            
+          .addClass('btn btn-danger btn-sm delete-conversation')
+          .text('刪除')
+          .attr('data-conversation-id', conversation.id);
+          
+          buttonContainer.append(editButton).append(deleteButton);
+
           const newChatItem = $('<a>')
             .addClass('list-group-item list-group-item-action d-flex justify-content-between align-items-center active')
             .attr({
@@ -176,7 +198,8 @@ sendButton.on('click', function () {
               'data-conversation-id': conversation.id,
             })
             .append(nameContainer)
-            .append(deleteButton);
+            .append(buttonContainer);
+            
             
           chatList.prepend(newChatItem);
 
@@ -282,6 +305,21 @@ sendButton.on('click', function () {
 
 
   //改左邊聊天室名稱
+  // 編輯左邊新對話聊天室按鈕點擊事件
+  chatList.on('click', '.edit-conversation', function(event) {
+  event.stopPropagation();
+  const chatItem = $(this).closest('.list-group-item');
+  const nameContainer = chatItem.find('.chat-name').parent();
+  const chatName = nameContainer.find('.chat-name');
+  const input = nameContainer.find('input');
+  
+  // 顯示輸入框並隱藏原本的名稱
+  chatName.addClass('d-none');
+  input.removeClass('d-none')
+    .val(chatName.text().trim())  // 設置當前名稱為輸入框的值
+    .focus();
+});
+
   // 雙擊編輯對話名稱
   chatList.on('dblclick', '.chat-name', function(e) {
     e.preventDefault();
@@ -293,38 +331,46 @@ sendButton.on('click', function () {
     input.removeClass('d-none').focus();
   });
 
-  // 失去焦點時保存名稱
-  chatList.on('blur', 'input', function() {
-    const input = $(this);
-    const nameContainer = input.parent();
-    const chatName = nameContainer.find('.chat-name');
-    const newName = input.val().trim();
-    const conversationId = input.closest('.list-group-item').attr('data-conversation-id');
-    
-    if (newName) {
-      $.ajax({
-        url: `/api/rename_conversation/${conversationId}`,
-        method: 'PUT',
-        contentType: 'application/json',
-        data: JSON.stringify({ name: newName }),
-        success: function(response) {
-          chatName.html(`<i class="bi bi-chat-dots me-2"></i>${newName}`);
-          input.addClass('d-none');
-          chatName.removeClass('d-none');
-        },
-        error: function(error) {
-          console.error('Error renaming conversation:', error);
-        }
-      });
-    }
-  });
 
-  // Enter鍵保存名稱
-  chatList.on('keypress', 'input', function(e) {
-    if (e.which === 13) {
-      $(this).blur();
-    }
-  });
+// 當輸入框失去焦點時儲存
+chatList.on('blur', 'input', function() {
+  const input = $(this);
+  const chatItem = input.closest('.list-group-item');
+  const nameContainer = input.parent();
+  const chatName = nameContainer.find('.chat-name');
+  const newName = input.val().trim();
+  const conversationId = chatItem.attr('data-conversation-id');
+  
+  if (newName) {
+    $.ajax({
+      url: `/api/rename_conversation/${conversationId}`,
+      method: 'PUT',
+      contentType: 'application/json',
+      data: JSON.stringify({ name: newName }),
+      success: function(response) {
+        // 更新顯示的名稱，保持圖示
+        chatName.html(`<i class="bi bi-chat-dots me-2"></i>${newName}`);
+        // 切換顯示狀態
+        input.addClass('d-none');
+        chatName.removeClass('d-none');
+      },
+      error: function(error) {
+        console.error('編輯對話名稱時發生錯誤:', error);
+        alert('編輯失敗，請稍後再試');
+        // 發生錯誤時恢復原本的名稱
+        input.addClass('d-none');
+        chatName.removeClass('d-none');
+      }
+    });
+  }
+});
+
+// 按下 Enter 鍵時也要儲存
+chatList.on('keypress', 'input', function(e) {
+  if (e.which === 13) {
+    $(this).blur();
+  }
+});
 
 
   // 漢堡菜單

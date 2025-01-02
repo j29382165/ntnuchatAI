@@ -149,7 +149,7 @@ $(document).ready(function () {
   }
   
   // 發送消息
-sendButton.on('click', function () {
+ sendButton.on('click', function () {
   const message = chatInput.val().trim(); // 使用者輸入的問題
   if (message) {
     if (!currentConversationId) {
@@ -332,45 +332,131 @@ sendButton.on('click', function () {
   });
 
 
-// 當輸入框失去焦點時儲存
-chatList.on('blur', 'input', function() {
-  const input = $(this);
-  const chatItem = input.closest('.list-group-item');
-  const nameContainer = input.parent();
-  const chatName = nameContainer.find('.chat-name');
-  const newName = input.val().trim();
-  const conversationId = chatItem.attr('data-conversation-id');
-  
-  if (newName) {
+  // 當輸入框失去焦點時儲存
+  chatList.on('blur', 'input', function() {
+    const input = $(this);
+    const chatItem = input.closest('.list-group-item');
+    const nameContainer = input.parent();
+    const chatName = nameContainer.find('.chat-name');
+    const newName = input.val().trim();
+    const conversationId = chatItem.attr('data-conversation-id');
+    
+    if (newName) {
+      $.ajax({
+        url: `/api/rename_conversation/${conversationId}`,
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({ name: newName }),
+        success: function(response) {
+          // 更新顯示的名稱，保持圖示
+          chatName.html(`<i class="bi bi-chat-dots me-2"></i>${newName}`);
+          // 切換顯示狀態
+          input.addClass('d-none');
+          chatName.removeClass('d-none');
+        },
+        error: function(error) {
+          console.error('編輯對話名稱時發生錯誤:', error);
+          alert('編輯失敗，請稍後再試');
+          // 發生錯誤時恢復原本的名稱
+          input.addClass('d-none');
+          chatName.removeClass('d-none');
+        }
+      });
+    }
+  });
+
+  // 按下 Enter 鍵時也要儲存
+  chatList.on('keypress', 'input', function(e) {
+    if (e.which === 13) {
+      $(this).blur();
+    }
+  });
+
+  //搜尋聊天室關鍵字
+  // 全域搜索功能
+  $('#button-addon2').on('click', function() {
+    const searchText = $('input[placeholder="搜尋..."]').val().toLowerCase().trim();
+    performSearch(searchText);
+  });
+
+  // 搜尋輸入框的 Enter 鍵事件
+  $('input[placeholder="搜尋..."]').on('keypress', function(e) {
+    if (e.which === 13) {
+      const searchText = $(this).val().toLowerCase().trim();
+      performSearch(searchText);
+    }
+  });
+
+  // 執行搜尋的函數
+  function performSearch(searchText) {
+    if (!searchText) {
+      // 如果搜尋文字為空，顯示所有對話
+      $('#chat-list .list-group-item').show();
+      $('.chat-content div').show();
+      return;
+    }
+
+    // 搜尋左側對話列表
+    $('#chat-list .list-group-item').each(function() {
+      const chatName = $(this).find('.chat-name').text().toLowerCase();
+      $(this).toggle(chatName.includes(searchText));
+    });
+
+    // 全域搜尋所有聊天記錄
     $.ajax({
-      url: `/api/rename_conversation/${conversationId}`,
-      method: 'PUT',
-      contentType: 'application/json',
-      data: JSON.stringify({ name: newName }),
-      success: function(response) {
-        // 更新顯示的名稱，保持圖示
-        chatName.html(`<i class="bi bi-chat-dots me-2"></i>${newName}`);
-        // 切換顯示狀態
-        input.addClass('d-none');
-        chatName.removeClass('d-none');
+      url: '/api/search_messages',
+      method: 'GET',
+      data: { 
+        query: searchText 
+      },
+      success: function(results) {
+        // 清空當前聊天內容
+        $('.chat-content').empty();
+        $('.chat-placeholder').hide();
+
+        if (results.length === 0) {
+          $('.chat-content').append(
+            $('<div>').addClass('text-center text-muted mt-3')
+              .text('找不到符合的訊息')
+          );
+          return;
+        }
+
+        // 顯示搜尋結果
+        results.forEach(function(result) {
+          const messageElement = $('<div>')
+            .addClass('search-result mb-3')
+            .append(
+              $('<div>').addClass('text-muted small mb-1')
+                .text(`來自對話: ${result.conversation_name}`)
+            );
+
+          // 根據發送者設置不同的樣式
+          const messageContent = $('<div>')
+            .addClass('p-2 rounded')
+            .text(result.message);
+
+          if (result.sender === 'user') {
+            messageContent.addClass('bg-primary text-white');
+            messageElement.addClass('d-flex justify-content-end');
+          } else {
+            messageContent.addClass('bg-light text-dark');
+            messageElement.addClass('d-flex justify-content-start');
+          }
+
+          messageElement.append(messageContent);
+          $('.chat-content').append(messageElement);
+        });
       },
       error: function(error) {
-        console.error('編輯對話名稱時發生錯誤:', error);
-        alert('編輯失敗，請稍後再試');
-        // 發生錯誤時恢復原本的名稱
-        input.addClass('d-none');
-        chatName.removeClass('d-none');
+        console.error('搜尋時發生錯誤:', error);
+        $('.chat-content').append(
+          $('<div>').addClass('text-center text-danger mt-3')
+            .text('搜尋時發生錯誤，請稍後再試')
+        );
       }
     });
   }
-});
-
-// 按下 Enter 鍵時也要儲存
-chatList.on('keypress', 'input', function(e) {
-  if (e.which === 13) {
-    $(this).blur();
-  }
-});
 
 
   // 漢堡菜單

@@ -163,6 +163,43 @@ def rename_conversation(conversation_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+# 搜尋功能
+@app.route('/api/search_messages', methods=['GET'])
+def search_messages():
+    query = request.args.get('query', '').lower()
+    if not query:
+        return jsonify([])
+
+    try:
+        # 搜尋所有符合關鍵字的訊息
+        results = db.session.query(
+            ChatMessage, 
+            Conversation.name.label('conversation_name')
+        ).join(
+            Conversation, 
+            ChatMessage.conversation_id == Conversation.id
+        ).filter(
+            db.or_(
+                db.func.lower(ChatMessage.message).contains(query),
+                db.func.lower(Conversation.name).contains(query)
+            )
+        ).all()
+
+        # 格式化搜尋結果
+        messages = [{
+            'message': msg.message,
+            'sender': msg.sender,
+            'conversation_id': msg.conversation_id,
+            'conversation_name': conv_name,
+            'timestamp': msg.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+        } for msg, conv_name in results]
+
+        return jsonify(messages)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 
 # 創建資料庫表格
 with app.app_context():
