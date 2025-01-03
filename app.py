@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from transformers import pipeline
 from datetime import datetime
+from multiprocessing import freeze_support
 import uuid
 
 app = Flask(__name__)
@@ -206,6 +207,7 @@ with app.app_context():
     db.create_all()
 
 if __name__ == "__main__":
+    freeze_support() 
     app.run(debug=True, threaded=False)  # 生產環境建議使用 WSGI (例如 gunicorn)
 
 
