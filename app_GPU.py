@@ -11,7 +11,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:ROOTROOT@localhost
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-#MAC-MPS(metal performance shaders)=GPU版本
 # 定義資料庫模型
 class Conversation(db.Model):
     __tablename__ = 'conversations'
@@ -51,7 +50,7 @@ class ModelConfig:
             return torch.device("mps")
         return torch.device("cpu")
 
-    def load_model(self, model_name="facebook/opt-350m", force_cpu=False):
+    def load_model(self, model_name="uer/gpt2-chinese-cluecorpussmall", force_cpu=False):
         try:
             self.device = self.get_device(force_cpu)
             print(f"Loading model on device: {self.device}")
@@ -66,10 +65,6 @@ class ModelConfig:
         except Exception as e:
             print(f"Model loading failed: {e}")
             return False
-
-    def switch_device(self, use_gpu=True):
-        """Switch between MPS (GPU) and CPU"""
-        return self.load_model(force_cpu=not use_gpu)
 
 # 初始化模型配置
 model_config = ModelConfig()
@@ -119,7 +114,7 @@ def handle_message():
     # 使用 AI 模型生成回覆
     try:
         ai_response = model_config.pipeline(
-            user_input, max_length=50, num_return_sequences=1, truncation=True
+            user_input, max_length=100, num_return_sequences=1, truncation=True
         )
         reply = ai_response[0]['generated_text']
 
@@ -236,10 +231,9 @@ with app.app_context():
 
 # 初始化時載入模型
 with app.app_context():
-    model_config.load_model()  # 預設使用 MPS (GPU)
+    if not model_config.load_model():  # 預設使用 MPS (GPU)
+        exit(1)  # 模型加載失敗時停止應用啟動
 
 if __name__ == "__main__":
     freeze_support()
     app.run(debug=True, threaded=False)  # 生產環境建議使用 WSGI (例如 gunicorn)
-
-

@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from transformers import pipeline
 from datetime import datetime
-from multiprocessing import freeze_support
 import uuid
 
 app = Flask(__name__)
@@ -38,7 +37,7 @@ class ChatMessage(db.Model):
 
 # 加載 Hugging Face 的 AI 模型
 try:
-    ai_pipeline = pipeline("text-generation", model="facebook/opt-350m")  # 指定模型
+    ai_pipeline = pipeline("text-generation", model="uer/gpt2-chinese-cluecorpussmall")  # 指定模型
 except Exception as e:
     print(f"模型加載失敗: {e}")
     ai_pipeline = None
@@ -207,8 +206,4 @@ with app.app_context():
     db.create_all()
 
 if __name__ == "__main__":
-    freeze_support() 
     app.run(debug=True, threaded=False)  # 生產環境建議使用 WSGI (例如 gunicorn)
-
-
-
