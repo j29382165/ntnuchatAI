@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from transformers import pipeline
 from datetime import datetime
 import uuid
+import langid
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:ROOTROOT@localhost/chat_db'
@@ -37,10 +38,12 @@ class ChatMessage(db.Model):
 
 # 加載 Hugging Face 的 AI 模型
 try:
-    ai_pipeline = pipeline("text-generation", model="uer/gpt2-chinese-cluecorpussmall")  # 指定模型
+    en_pipeline = pipeline("text-generation", model="facebook/opt-350m")  # 指定模型facebook/opt-350m, uer/gpt2-chinese-cluecorpussmall
+    zh_pipeline = pipeline("text-generation", model="uer/gpt2-chinese-cluecorpussmall")
 except Exception as e:
     print(f"模型加載失敗: {e}")
-    ai_pipeline = None
+    en_pipeline = None
+    zh_pipeline = None
 
 # 提供首頁
 @app.route('/')
@@ -71,9 +74,21 @@ def handle_message():
 
     if not user_input or not conversation_id:
         return jsonify({"error": "Invalid request"}), 400
+    
+    # 檢測輸入語言
+    lang, _ = langid.classify(user_input)
+
+    # 根據語言選擇模型
+    if lang == 'en':
+        ai_pipeline = en_pipeline
+    else:
+        ai_pipeline = zh_pipeline
+
 
     # 確保模型已正確加載
-    if not ai_pipeline:
+    if not en_pipeline:
+        return jsonify({"error": "AI 模型未加載，請檢查伺服器設定"}), 500
+    if not zh_pipeline:
         return jsonify({"error": "AI 模型未加載，請檢查伺服器設定"}), 500
 
     # 儲存用戶訊息到資料庫
