@@ -1,9 +1,13 @@
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
-from transformers import pipeline
 from datetime import datetime
 import uuid
-import langid
+import torch
+from model import LanguageModel
+from save_load_model import load_model
+from tokenization import build_vocab
+from data_cleaning import clean_text
+from generate_text import generate_text
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:ROOTROOT@localhost/chat_db'
@@ -36,14 +40,53 @@ class ChatMessage(db.Model):
             'timestamp': self.timestamp
         }
 
-# 加載 Hugging Face 的 AI 模型
+# # 加載 Hugging Face 的 AI 模型
+# try:
+#     ai_pipeline = pipeline("text-generation", model="facebook/opt-350m")  # 指定模型
+# except Exception as e:
+#     print(f"模型加載失敗: {e}")
+#     ai_pipeline = None
+
+# 加載自訓練模型
 try:
-    en_pipeline = pipeline("text-generation", model="facebook/opt-350m")  # 指定模型facebook/opt-350m, uer/gpt2-chinese-cluecorpussmall
-    zh_pipeline = pipeline("text-generation", model="uer/gpt2-chinese-cluecorpussmall")
+    # 從 PDF 和 Word 文件讀取數據來初始化詞彙表
+    from data_extraction import extract_pdf_text, extract_word_text
+    
+    try:
+        pdf_text = extract_pdf_text("/Users/sma01/Downloads/testdata.pdf")
+        word_text = extract_word_text("/Users/sma01/Downloads/testdata.docx")
+        all_text = pdf_text + word_text
+    except Exception as e:
+        print(f"讀取訓練文件失敗: {e}")
+        # 如果無法讀取文件，使用一個小的示例文本
+        all_text = "這是一個測試文本 用於初始化詞彙表"
+    
+    cleaned_text = clean_text(all_text)
+    vocab = build_vocab(cleaned_text)
+    vocab_size = max(1000, len(vocab) + 1)  # 確保詞彙表大小至少為1000
+    
+    # 初始化模型
+    embed_size = 128
+    hidden_size = 256
+    model = LanguageModel(vocab_size, embed_size, hidden_size)
+    
+    # 加載訓練好的模型
+    loaded_vocab_size = load_model(model, "ntnuchatAI/language_model.pth")
+    model.eval()  # 設置為評估模式
+    
+    # 創建反向詞彙表
+    inv_vocab = {v: k for k, v in vocab.items()}
+    
+    print("模型加載成功")
+    print(f"詞彙表大小: {vocab_size}")
+    
 except Exception as e:
     print(f"模型加載失敗: {e}")
-    en_pipeline = None
-    zh_pipeline = None
+    model = None
+    vocab = None
+    inv_vocab = None
+
+
 
 # 提供首頁
 @app.route('/')
@@ -74,21 +117,9 @@ def handle_message():
 
     if not user_input or not conversation_id:
         return jsonify({"error": "Invalid request"}), 400
-    
-    # 檢測輸入語言
-    lang, _ = langid.classify(user_input)
-
-    # 根據語言選擇模型
-    if lang == 'en':
-        ai_pipeline = en_pipeline
-    else:
-        ai_pipeline = zh_pipeline
-
 
     # 確保模型已正確加載
-    if not en_pipeline:
-        return jsonify({"error": "AI 模型未加載，請檢查伺服器設定"}), 500
-    if not zh_pipeline:
+    if not model or not vocab:
         return jsonify({"error": "AI 模型未加載，請檢查伺服器設定"}), 500
 
     # 儲存用戶訊息到資料庫
@@ -101,26 +132,32 @@ def handle_message():
 
     # 使用 AI 模型生成回覆
     try:
-        ai_response = ai_pipeline(
-            user_input, max_length=50, num_return_sequences=1, truncation=True
-        )
-        reply = ai_response[0]['generated_text']
+        # 使用模型生成回覆
+        with torch.no_grad():
+            reply = generate_text(
+                model=model,
+                start_text=user_input,
+                vocab=vocab,
+                inv_vocab=inv_vocab,
+                max_length=50,
+                seq_length=10
+            )
 
-        # 儲存 AI 回覆到資料庫
-        ai_chat_message = ChatMessage(
+        # 儲存 AI 回覆
+        ai_message = ChatMessage(
             conversation_id=conversation_id,
             sender='ai', 
             message=reply
         )
-        db.session.add(ai_chat_message)
-        
-        # 提交資料庫事務
+        db.session.add(ai_message)
         db.session.commit()
+        
+        return jsonify({"reply": reply})
+
     except Exception as e:
         db.session.rollback()
+        print(f"Error generating response: {e}")
         return jsonify({"error": f"生成回覆時出錯: {str(e)}"}), 500
-
-    return jsonify({"reply": reply})
 
 # 查詢對話列表
 @app.route('/api/conversations', methods=['GET'])
