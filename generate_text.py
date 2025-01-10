@@ -1,14 +1,18 @@
 import torch
-from typing import Dict, List
+import torch.nn.functional as F
+from typing import Dict, List, Optional
+import numpy as np
 
 def generate_text(model: torch.nn.Module, 
                  start_text: str, 
                  vocab: Dict[str, int], 
-                 inv_vocab: Dict[int, str] = None,
+                 inv_vocab: Optional[Dict[int, str]] = None,
                  max_length: int = 50,
-                 seq_length: int = 10) -> str:
+                 seq_length: int = 20,
+                 temperature: float = 0.7,
+                 top_k: int = 40) -> str:
     """
-    生成文本的函數
+    改進的文本生成函數
     
     Args:
         model: 訓練好的語言模型
@@ -17,52 +21,84 @@ def generate_text(model: torch.nn.Module,
         inv_vocab: 反向詞彙表 (id -> word)
         max_length: 生成文本的最大長度
         seq_length: 序列長度
+        temperature: 採樣溫度，控制生成文本的隨機性
+        top_k: top-k 採樣的 k 值
     """
     # 創建反向詞彙表（如果沒有提供）
     if inv_vocab is None:
         inv_vocab = {v: k for k, v in vocab.items()}
     
     model.eval()
-    words = start_text.split()
+    words = start_text.lower().split()
     
     # 處理輸入序列
     input_ids = []
     for word in words:
-        # 如果詞不在詞彙表中，使用UNK或第一個詞
         word_id = vocab.get(word, 0)
-        # 確保id不超過模型的詞彙表大小
         word_id = min(word_id, model.vocab_size - 1)
         input_ids.append(word_id)
     
-    input_seq = torch.tensor(input_ids, dtype=torch.long).unsqueeze(0)
+    # 如果輸入序列太短，用 0 填充
+    if len(input_ids) < seq_length:
+        padding = [0] * (seq_length - len(input_ids))
+        input_ids = padding + input_ids
+    
+    input_seq = torch.tensor(input_ids[-seq_length:], dtype=torch.long).unsqueeze(0)
     
     # 生成文本
+    generated_words = words.copy()
     with torch.no_grad():
         for _ in range(max_length):
-            # 確保輸入序列不超過seq_length
-            if input_seq.size(1) > seq_length:
-                input_seq = input_seq[:, -seq_length:]
-                
             try:
                 output = model(input_seq)
-                next_word_id = torch.argmax(output, dim=1).item()
                 
-                # 確保生成的id有對應的詞
+                # 應用溫度
+                logits = output / temperature
+                
+                # 應用 top-k 採樣
+                top_k_logits, top_k_indices = torch.topk(logits, k=min(top_k, logits.size(-1)))
+                probs = F.softmax(top_k_logits, dim=-1)
+                
+                # 從 top-k 中採樣
+                next_token_idx = torch.multinomial(probs, num_samples=1)
+                next_word_id = top_k_indices[0][next_token_idx[0]].item()
+                
+                # 確保生成的 id 有對應的詞
                 if next_word_id in inv_vocab:
-                    words.append(inv_vocab[next_word_id])
+                    next_word = inv_vocab[next_word_id]
+                    generated_words.append(next_word)
+                
+                    # 更新輸入序列
+                    input_ids = [vocab.get(w, 0) for w in generated_words[-seq_length:]]
+                    input_seq = torch.tensor(input_ids, dtype=torch.long).unsqueeze(0)
                 else:
-                    # 如果id超出範圍，使用一個替代詞
-                    words.append("<UNK>")
-                
-                # 更新輸入序列
-                input_ids = [vocab.get(w, 0) for w in words[-seq_length:]]
-                input_seq = torch.tensor(input_ids, dtype=torch.long).unsqueeze(0)
-                
+                    break
+                    
             except Exception as e:
                 print(f"Error during text generation: {e}")
                 break
     
-    return " ".join(words)
+    return " ".join(generated_words)
+
+def sample_response(model, user_input: str, vocab: Dict[str, int], 
+                   inv_vocab: Dict[int, str]) -> str:
+    """
+    基於用戶輸入生成回應
+    """
+    try:
+        response = generate_text(
+            model=model,
+            start_text=user_input,
+            vocab=vocab,
+            inv_vocab=inv_vocab,
+            max_length=50,
+            seq_length=20,
+            temperature=0.7,
+            top_k=40
+        )
+        return response
+    except Exception as e:
+        return f"抱歉，生成回應時出現錯誤：{str(e)}"
 
 # 主程序
 if __name__ == "__main__":
@@ -81,7 +117,7 @@ if __name__ == "__main__":
         
         # 構建詞彙表
         vocab = build_vocab(cleaned_text)
-        vocab_size = max(1000, len(vocab) + 1)  # 確保詞彙表大小至少為1000
+        vocab_size = max(1000, len(vocab) + 1)
         
         # 創建反向詞彙表
         inv_vocab = {v: k for k, v in vocab.items()}
@@ -96,15 +132,13 @@ if __name__ == "__main__":
         print(f"Loaded model vocab size: {loaded_vocab_size}")
         print(f"Current vocab size: {len(vocab)}")
         
-        # 生成文本
-        start_text = "中文名"
+        # 測試生成
+        start_text = "你好"
         generated_text = generate_text(
             model=model,
             start_text=start_text,
             vocab=vocab,
-            inv_vocab=inv_vocab,
-            max_length=50,
-            seq_length=10
+            inv_vocab=inv_vocab
         )
         print("生成的文本：", generated_text)
         

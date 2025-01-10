@@ -7,7 +7,9 @@ from model import LanguageModel
 from save_load_model import load_model
 from tokenization import build_vocab
 from data_cleaning import clean_text
-from generate_text import generate_text
+from generate_text import generate_text, sample_response
+from typing import Dict
+
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:ROOTROOT@localhost/chat_db'
@@ -118,46 +120,36 @@ def handle_message():
     if not user_input or not conversation_id:
         return jsonify({"error": "Invalid request"}), 400
 
-    # 確保模型已正確加載
-    if not model or not vocab:
-        return jsonify({"error": "AI 模型未加載，請檢查伺服器設定"}), 500
-
-    # 儲存用戶訊息到資料庫
-    user_message = ChatMessage(
-        conversation_id=conversation_id,
-        sender='user', 
-        message=user_input
-    )
-    db.session.add(user_message)
-
-    # 使用 AI 模型生成回覆
     try:
-        # 使用模型生成回覆
-        with torch.no_grad():
-            reply = generate_text(
-                model=model,
-                start_text=user_input,
-                vocab=vocab,
-                inv_vocab=inv_vocab,
-                max_length=50,
-                seq_length=10
-            )
-
-        # 儲存 AI 回覆
+        # 使用改進後的回應生成函數
+        reply = sample_response(
+            model=model,
+            user_input=user_input,
+            vocab=vocab,
+            inv_vocab=inv_vocab
+        )
+        
+        # 儲存對話記錄
+        user_message = ChatMessage(
+            conversation_id=conversation_id,
+            sender='user', 
+            message=user_input
+        )
         ai_message = ChatMessage(
             conversation_id=conversation_id,
             sender='ai', 
             message=reply
         )
+        
+        db.session.add(user_message)
         db.session.add(ai_message)
         db.session.commit()
         
         return jsonify({"reply": reply})
-
     except Exception as e:
         db.session.rollback()
-        print(f"Error generating response: {e}")
-        return jsonify({"error": f"生成回覆時出錯: {str(e)}"}), 500
+        return jsonify({"error": str(e)}), 500
+
 
 # 查詢對話列表
 @app.route('/api/conversations', methods=['GET'])
